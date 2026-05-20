@@ -246,34 +246,32 @@ for i, page in enumerate(doc):
       ⚠️ 文本层有SAV但缺D10/D4/D5（或反之）→ 只对缺失部分触发路径B门控
 
     路径B - 其他所有情况（包括PDF用户）：
-      ⚠️⚠️⚠️ 硬性门控：必须在写入structured_data.md之前请求截图！
-      不要先写structured_data再问截图，必须先问截图再一起写入。
+      ⚠️⚠️⚠️ 硬性门控：必须在写入structured_data.md之前请求补充数据！
+      不要先写structured_data再问，必须先问再一起写入。
 
       D1/D9提取完成后立即暂停，输出以下消息：
 
       "✅ D1基础数据和D9已提取并校验完毕。
 
-       ⚠️ 以下数据AI从PDF直接提取准确率不够，需要您配合：
+       ⚠️ 以下数据AI从PDF直接提取准确率不够，需要您从JHora中Copy文字给我：
 
-       📊 SAV(Ashtakavarga)数据：
-         → 在JHora中打开Ashtakavarga标签页 → 右键Copy → 粘贴给我
-         → 或者截图PDF第二页左上角的SAV表格（标题含'Ashtakavarga of Rasi Chart'）
+       📊 SAV数据：
+         在JHora中打开 Ashtakavarga 标签页 → 右键Copy → 粘贴给我
 
        📋 D10/D4/D5分盘：
-         请从JHora中截屏以下3张分盘图发来：
-         ① D10 (Dasamsha) 盘
-         ② D4 (Chaturthamsha) 盘
-         ③ D5 (Panchamsha) 盘
-         每张截清楚行星缩写和As标记就行，手机拍屏幕也可以。
+         在JHora中分别打开 D10/D4/D5 标签页 → 右键Copy → 粘贴给我
+         （3个分盘各Copy一次，一起发过来就行）
+
+       💡 如果没法Copy文字，也可以截图发来（截清楚行星缩写和As标记）
 
        → 发送后我会一起写入完整的structured_data.md
        → 如果暂时没有，说'跳过'，对应数据将标记为未验证"
 
       → 等用户回复后再继续！
-      → 收到截图/文本 → 提取SAV+D10/D4/D5 → 连同D1/D9一起写入structured_data
+      → 收到文本/截图 → 提取SAV+D10/D4/D5 → 连同D1/D9一起写入structured_data
       → 用户说"跳过" → 标注对应数据为"未提取" → 写入structured_data（不含未提取部分）
       → 绝不自行从PDF渲染提取然后假装数据正确
-      → 绝不先写structured_data再问截图
+      → 绝不先写structured_data再问补充数据
 
     → 每个分盘提取10行（Lagna + 9颗行星的星座和宫位）
 
