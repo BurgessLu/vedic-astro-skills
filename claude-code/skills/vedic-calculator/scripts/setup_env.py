@@ -9,9 +9,11 @@ setup_env.py — vedic-calculator 环境自动搭建脚本
 
 安装顺序（关键！）：
   1. pysweph>=2.10.3.5     — 提供 swisseph module（社区活跃 fork，有 cp38~cp313 wheel）
-  2. dashaflow>=0.3 --no-deps  — 跳过其对已停更的 pyswisseph 的声明依赖
-  3. PyJHora==4.8.6        — SAV/BAV + Shadbala + 分盘
-  4. pytz>=2024.1          — 时区
+  2. PyJHora 隐藏依赖       — numpy, geocoder, geopy, requests, timezonefinder（PyJHora 未声明！）
+  3. dashaflow>=0.3 --no-deps  — 跳过其对已停更的 pyswisseph 的声明依赖
+  4. PyJHora==4.8.6        — SAV/BAV + Shadbala + 分盘
+  5. pytz>=2024.1          — 时区
+  6. 修复 ephemeris 数据    — PyJHora pip 包缺少 .se1 星历文件，从 pysweph 复制
 """
 
 import subprocess
@@ -25,10 +27,17 @@ import argparse
 # ── 配置 ────────────────────────────────────────────
 REQUIRED_PACKAGES = [
     # (包名, 版本约束, 额外 pip 参数)
-    ("pysweph", ">=2.10.3.5", []),
-    ("pytz", ">=2024.1", []),
-    ("dashaflow", ">=0.3", ["--no-deps"]),
-    ("PyJHora", "==4.8.6", []),
+    # 顺序至关重要！
+    ("pysweph", ">=2.10.3.5", []),                    # 1. Swiss Ephemeris C 模块
+    ("pytz", ">=2024.1", []),                          # 2. 时区
+    ("numpy", "", []),                                  # 3. PyJHora 隐藏依赖
+    ("geocoder", "", []),                               # 4. PyJHora 隐藏依赖
+    ("geopy", "", []),                                  # 5. PyJHora 隐藏依赖
+    ("requests", "", []),                               # 6. PyJHora 隐藏依赖
+    ("timezonefinder", "", []),                         # 7. PyJHora 隐藏依赖
+    ("python-dateutil", "", []),                        # 8. PyJHora 隐藏依赖
+    ("dashaflow", ">=0.3", ["--no-deps"]),             # 9. 跳过 pyswisseph 依赖
+    ("PyJHora", "==4.8.6", []),                        # 10. SAV/BAV + Shadbala + 分盘
 ]
 
 MIN_PYTHON = (3, 8)
@@ -133,7 +142,92 @@ def install_packages(venv_dir):
         cmd = [pip, "install", pkg_str] + extra_args
         if not run_cmd(cmd, f"安装 {pkg_name}"):
             return False
+    
+    # 修复 PyJHora 缺失的 ephemeris 数据
+    fix_ephemeris_data(venv_dir)
     return True
+
+
+def fix_ephemeris_data(venv_dir):
+    """修复 PyJHora 包缺少的 .se1 星历数据文件。
+    
+    PyJHora 4.8.6 的 pip 包里 jhora/data/ephe/ 目录缺少必要的 .se1 文件
+    （seas_18.se1, semo_18.se1, sepl_18.se1），导致天文计算失败。
+    
+    复制优先级：
+      1. 本仓库自带的 scripts/ephe/ 目录（最可靠，不依赖网络）
+      2. pysweph 包内的数据目录
+      3. 从 Swiss Ephemeris 官方 FTP 下载
+    """
+    py = get_venv_python(venv_dir)
+    scripts_dir = os.path.dirname(os.path.abspath(__file__))
+    bundled_ephe = os.path.join(scripts_dir, "ephe")
+    
+    fix_code = f"""
+import os, sys, shutil, glob
+
+# 找到 jhora 的 ephe 目录
+try:
+    import jhora
+    jhora_ephe = os.path.join(os.path.dirname(jhora.__file__), 'data', 'ephe')
+except ImportError:
+    print('SKIP: jhora not installed')
+    sys.exit(0)
+
+# 检查是否已有 .se1 文件
+if glob.glob(os.path.join(jhora_ephe, '*.se1')):
+    print(f'OK: .se1 files already exist')
+    sys.exit(0)
+
+SE1_NAMES = ['seas_18.se1', 'semo_18.se1', 'sepl_18.se1']
+
+# 优先级1: 从仓库自带的 scripts/ephe/ 复制
+bundled = r'{bundled_ephe}'
+if os.path.isdir(bundled):
+    found = [f for f in SE1_NAMES if os.path.exists(os.path.join(bundled, f))]
+    if found:
+        os.makedirs(jhora_ephe, exist_ok=True)
+        for f in found:
+            shutil.copy2(os.path.join(bundled, f), os.path.join(jhora_ephe, f))
+            print(f'Copied (bundled): {{f}}')
+        sys.exit(0)
+
+# 优先级2: 从 pysweph 包找
+try:
+    import swisseph as swe
+    swe_dir = os.path.dirname(swe.__file__)
+    for d in [os.path.join(swe_dir, 'data'), os.path.join(swe_dir, 'ephe'), swe_dir]:
+        if os.path.isdir(d):
+            se1 = glob.glob(os.path.join(d, '*.se1'))
+            if se1:
+                os.makedirs(jhora_ephe, exist_ok=True)
+                for f in se1:
+                    shutil.copy2(f, os.path.join(jhora_ephe, os.path.basename(f)))
+                    print(f'Copied (pysweph): {{os.path.basename(f)}}')
+                sys.exit(0)
+except ImportError:
+    pass
+
+# 优先级3: 从 Swiss Ephemeris 官方 FTP 下载
+BASE_URL = 'https://www.astro.com/ftp/swisseph/ephe'
+try:
+    import urllib.request
+    os.makedirs(jhora_ephe, exist_ok=True)
+    for name in SE1_NAMES:
+        dst = os.path.join(jhora_ephe, name)
+        if not os.path.exists(dst):
+            url = f'{{BASE_URL}}/{{name}}'
+            print(f'Downloading: {{name}}...')
+            urllib.request.urlretrieve(url, dst)
+            print(f'Downloaded: {{name}}')
+except Exception as e:
+    print(f'WARN: Could not download .se1 files: {{e}}')
+    print('SAV may use Moshier fallback (slightly less precise but functional)')
+"""
+    result = subprocess.run([py, "-c", fix_code], capture_output=True, text=True, timeout=120)
+    if result.stdout.strip():
+        for line in result.stdout.strip().split('\n'):
+            log(line, "OK" if "Copied" in line or "OK" in line or "Downloaded" in line else "INFO")
 
 
 def validate(venv_dir):
@@ -165,18 +259,24 @@ def validate(venv_dir):
     # 2. SAV=337 校验（用 ashtakavarga_pyjhora 直接测试）
     scripts_dir = os.path.dirname(os.path.abspath(__file__))
     test_code = f"""
-import sys
+import sys, io
 sys.path.insert(0, r'{scripts_dir}')
+# Suppress PyJHora's noisy stdout during import
+_real_stdout = sys.stdout
+sys.stdout = io.StringIO()
 from ashtakavarga_pyjhora import calculate_ashtakavarga_fixed
+sys.stdout = _real_stdout
 r = calculate_ashtakavarga_fixed(2002, 12, 11, 20, 47, 25.4333, 119.0, 8.0)
 total = sum(r['sarvashtakavarga'].values())
-print(total)
+print(f'SAV_RESULT={{total}}')
 """
     result = subprocess.run([py, "-c", test_code], capture_output=True, text=True, timeout=60)
-    if result.returncode == 0 and result.stdout.strip() == "337":
+    # Extract SAV_RESULT from output (PyJHora prints noise to stdout)
+    sav_ok = "SAV_RESULT=337" in result.stdout
+    if result.returncode == 0 and sav_ok:
         log("SAV=337 校验通过", "OK")
     else:
-        log(f"SAV 校验失败 (got: {result.stdout.strip()}, err: {result.stderr[-200:]})", "ERR")
+        log(f"SAV 校验失败 (got: {result.stdout.strip()}, err: {result.stderr[-300:]})", "ERR")
         return False
     
     return True
