@@ -433,7 +433,10 @@ def detect_package(found, lang="cn", brand=None):
     elif brand == "open":
         is_pro = False
     else:
-        is_pro = "identity" in found or "prediction" in found
+        # 自动检测：只用 Pro 独有文件判定。
+        # ❌ 不能用 "identity"——该 key 也映射开源版的 p1_overview.md，会把开源误判为 Pro。
+        # ✅ prediction(p5_prediction.md) / blueprint(p6c_blueprint.md) 才是 Pro 专属。
+        is_pro = "prediction" in found or "blueprint" in found
     version = "Pro" if is_pro else "开源版" if lang == "cn" else "Open Source"
 
     parts = []
