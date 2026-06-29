@@ -241,7 +241,19 @@ Lagna确认后，进入渐进式校准：
 
 ### 3b. 时间扫描
 
-运行脚本：
+⚠️ **跑 time_scan.py 前的环境检测（它依赖 swisseph，别裸 python 跑）**：
+```
+❌ 不要直接 pip install pyswisseph —— 会撞 SSL/依赖冲突，且没必要。
+✅ 复用 vedic-calculator 已建好的 venv（含 swisseph）：
+   1. 找 vedic-calculator 的 venv：<vedic-calculator skill目录>/venv/
+      或工作目录下 vedic-calc-env/ 、 venv/
+      → 用它的 python 跑（如 <…>/venv/Scripts/python.exe scripts/time_scan.py）
+   2. 找不到 venv → 先跑 calculator 的环境自检建好（<calc目录>/scripts/setup_env.py），再用
+   3. 当前 python 已能 import swisseph（非空壳，swe.version≠'0.0.0'）→ 直接用
+   即：time_scan.py 必须用"有 swisseph 的 python"跑，不是裸 python。
+```
+
+运行脚本（把下面的 `python` 换成上面检测到的、有 swisseph 的 python）：
 ```python
 python scripts/time_scan.py \
   --date [出生日期] \
