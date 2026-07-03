@@ -191,7 +191,7 @@ Phase 4 Part 3   → 写入 career_phase4c.md
    - 贵格(Raja Yoga): 参考预分析宫主表+相位关系
    - 富格(Dhana Yoga): 参考2/11宫主互动
    - Vipreet Raja Yoga: 6/8/12宫主互飞
-   - Gaja Kesari/Adhi Yoga: Moon与吉星关系
+   - Gaja Kesari/Adhi Yoga: 判定条件见 vedic-core/resources/yogas.md，禁止按"Moon旁有吉星"即兴判成立
 
 2. **强点锁定:**
    - AmK(事业指标星) → 从structured_data Chara Karakas读取
@@ -230,6 +230,7 @@ Phase 4 Part 3   → 写入 career_phase4c.md
 4. **职业人格(D9上升):** 成熟期管理风格
 5. **最终果实(D1 L10在D9的落点):** 职业终局
 6. **Karakamsha:** AK/AmK在D9落点
+   - 约束：Karakamsha 只读 AK 的 D9 落宫，用宫位主题语言描述内在驱动（参照 house_framework 宫义），禁止引用古典 Karakamsha 星座职业清单；AmK 的 D9 落点并入第2项武器压力测试处理
 7. **阶段总结(The Bridge):** 一段话串联D1→D9结论
 
 ---

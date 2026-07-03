@@ -64,6 +64,21 @@
   Jupiter和Moon的Shadbala决定实现程度
 ```
 
+<!-- ANCHOR: A-YG-b0def53f L1 -->
+### Adhi Yoga（辅弼格局）
+<!-- ANCHOR: A-YG-7129bfed L2 -->
+```
+条件：自然吉星（Jupiter/Venus/Mercury）落在从Moon起第6/7/8宫，且所落宫无凶星混杂
+  ⚠️ 判据与Gajakesari（Jupiter/Moon互为角宫）不同，禁止混同；
+     "Moon旁边有吉星"不构成本格局
+含义：领导力/权威/辅佐得力，地位与庇护有支撑
+评估：
+  6/7/8三宫均有吉星且无凶星 → 完整成立，效力最强
+  仅1-2宫有吉星 → 部分成立，效力递减
+  所落宫混有凶星 → 减损，标注"弱成立"
+  参与吉星燃烧/落陷/弱Shadbala → 按P12条件修正打折
+```
+
 <!-- ANCHOR: A-YG-6558db47 L1 -->
 ### Chandra-Mangala Yoga（月火格局）
 <!-- ANCHOR: A-YG-af114c29 L2 -->

@@ -386,5 +386,17 @@ def format_structured_data(chart, transit_data, meta, user_info):
         lines.append(f"Jupiter过运相位覆盖宫位: {transit_data['jupiter_covers']}")
         lines.append(f"双过运激活宫位: {transit_data['double_transit']}")
         lines.append("```")
-    
+
+        if transit_data.get('future_ingress'):
+            lines.append("")
+            lines.append("### 未来过运换座时间表（真实天文计算，未来5年）")
+            lines.append("> ⚠️ 报告/QA 中所有未来过运窗口必须引用本表日期，禁止凭记忆推算换座时间。")
+            lines.append("> 逆行回跨如实列出（同一边界可能 进→退→再进）。")
+            lines.append("")
+            lines.append("| 日期 | 行星 | 换座 |")
+            lines.append("|------|------|------|")
+            for ev in transit_data['future_ingress']:
+                lines.append(f"| {ev['date']} | {ev['planet']} | {ev['from_sign']} → {ev['to_sign']} |")
+            lines.append("")
+
     return '\n'.join(lines)

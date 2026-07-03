@@ -88,8 +88,43 @@ def calc_transit(lagna_sign_idx, moon_sign_idx, tz_str="Asia/Kolkata"):
         'saturn_covers': sorted(saturn_covers),
         'jupiter_covers': sorted(jupiter_covers),
         'double_transit': double_transit,
+        'future_ingress': future_ingress_table(jd, years=5),
         'date': now.strftime('%Y-%m-%d')
     }
+
+
+def future_ingress_table(jd_start, years=5):
+    """未来 N 年 Saturn/Jupiter/Rahu 的恒星黄道(True Chitra)换座时间表。
+
+    真实天文计算，替代模型凭记忆写未来过运（LLM 心算换座日期常错数月到一年）。
+    逆行导致的回跨也如实记录（同一边界可能出现 进→退→再进 多条）。
+    Returns: [{'planet','date','from_sign','to_sign'}, ...] 按日期排序
+    """
+    swe.set_sid_mode(swe.SIDM_TRUE_CITRA)
+    flags = swe.FLG_SIDEREAL | swe.FLG_SPEED
+    bodies = {'Saturn': swe.SATURN, 'Jupiter': swe.JUPITER, 'Rahu': swe.MEAN_NODE}
+    events = []
+    jd_end = jd_start + years * 365.25
+    for name, pid in bodies.items():
+        step = 5.0
+        prev_idx = int(swe.calc_ut(jd_start, pid, flags)[0][0] / 30)
+        jd = jd_start + step
+        while jd <= jd_end:
+            idx = int(swe.calc_ut(jd, pid, flags)[0][0] / 30)
+            if idx != prev_idx:
+                lo, hi = jd - step, jd  # 二分到 0.01 天
+                while hi - lo > 0.01:
+                    mid = (lo + hi) / 2
+                    if int(swe.calc_ut(mid, pid, flags)[0][0] / 30) == prev_idx:
+                        lo = mid
+                    else:
+                        hi = mid
+                y, m, d, _ = swe.revjul(hi)
+                events.append({'planet': name, 'date': f'{y:04d}-{m:02d}-{d:02d}',
+                               'from_sign': SIGNS[prev_idx], 'to_sign': SIGNS[idx]})
+                prev_idx = idx
+            jd += step
+    return sorted(events, key=lambda e: e['date'])
 
 if __name__ == '__main__':
     # Test with Virgo Lagna, Cancer Moon
