@@ -181,14 +181,21 @@ if glob.glob(os.path.join(jhora_ephe, '*.se1')):
 
 SE1_NAMES = ['seas_18.se1', 'semo_18.se1', 'sepl_18.se1']
 
-# 优先级1: 从仓库自带的 scripts/ephe/ 复制
+# 优先级1: 从仓库自带的 scripts/ephe/ 复制（兼容 .se1 与 .se1.txt——
+#          redskill 分发包为过审把 .se1 编码成 .se1.txt，这里自动解码还原真名）
 bundled = r'{bundled_ephe}'
 if os.path.isdir(bundled):
-    found = [f for f in SE1_NAMES if os.path.exists(os.path.join(bundled, f))]
-    if found:
-        os.makedirs(jhora_ephe, exist_ok=True)
-        for f in found:
-            shutil.copy2(os.path.join(bundled, f), os.path.join(jhora_ephe, f))
+    os.makedirs(jhora_ephe, exist_ok=True)
+    copied = []
+    for name in SE1_NAMES:
+        for src_name in (name, name + '.txt'):
+            src = os.path.join(bundled, src_name)
+            if os.path.exists(src):
+                shutil.copy2(src, os.path.join(jhora_ephe, name))
+                copied.append(name)
+                break
+    if copied:
+        for f in copied:
             print(f'Copied (bundled): {{f}}')
         sys.exit(0)
 
