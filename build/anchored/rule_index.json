@@ -1,8 +1,8 @@
 {
- "source_commit": "f2751ac5adbf",
- "generated_at": "2026-07-04T20:16:54Z",
+ "source_commit": "1e47943b90af",
+ "generated_at": "2026-07-04T20:34:59Z",
  "repo": "vedic-astrology-skills",
- "anchor_count": 268,
+ "anchor_count": 269,
  "anchors": [
   {
    "id": "A-SK-c3f104d1",
@@ -633,6 +633,13 @@
    "level": "L1",
    "title": "⚠️ 语言风格（此步骤最重要的规则）",
    "text": "### ⚠️ 语言风格（此步骤最重要的规则）"
+  },
+  {
+   "id": "A-SK-6bf0eaf4",
+   "file": "SKILL.md",
+   "level": "L2",
+   "title": "⚠️ 分盘引用（下游消费）：板块正文引用 p3b/分盘结论时，沿用其线A/线B标注，禁压平成 D1 宫主职、禁\"X是H\\*主\"不标盘（见 house_frame",
+   "text": "**⚠️ 分盘引用（下游消费）：板块正文引用 p3b/分盘结论时，沿用其线A/线B标注，禁压平成 D1 宫主职、禁\"X是H\\*主\"不标盘（见 house_framework 铁律·下游消费）。**"
   },
   {
    "id": "A-SK-4a2afe8b",
