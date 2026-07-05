@@ -31,7 +31,13 @@ def format_structured_data(chart, transit_data, meta, user_info):
     lines.append(f"有效精度: {meta.get('effective_precision', '±分钟级')}")
     lines.append(f"验证轨道: 轨道1-标准")
     lines.append(f"读盘方式: vedic-calculator直接计算")
-    lines.append(f"Ayanamsa: Lahiri ({chart['ayanamsa']:.4f}°)")
+    lines.append(f"Ayanamsa: True Chitrapaksha（Lahiri系,差<1′） ({chart['ayanamsa']:.4f}°)")
+    if chart.get('dst_info'):
+        di = chart['dst_info']
+        if di['is_dst']:
+            lines.append(f"夏令时: ⚠️ 出生时刻处于当地夏令时期间，报时已按\"墙上钟时间\"处理（实际UTC偏移 {di['utc_offset']}）。若出生记录为标准时（未拨快的时间），需声明后按标准时重排。")
+        else:
+            lines.append(f"夏令时: 否（UTC偏移 {di['utc_offset']}）")
     lines.append(f"Node模式: Mean Node")
     lines.append("```\n")
     
@@ -175,6 +181,26 @@ def format_structured_data(chart, transit_data, meta, user_info):
             next_dasha = d
     lines.append("")
     
+    # Chara Dasha (K.N. Rao) — 第二时间系统（双系统交叉验证用）
+    if chart.get('chara_dasha'):
+        import swisseph as _swe
+        cd = chart['chara_dasha']
+        lines.append(f"### Chara Dasha 时间线（K.N. Rao，{'顺行' if cd['direction']=='forward' else '逆行'}）")
+        lines.append("> 与 Vimsottari 完全独立的第二时间系统（Jaimini 星座大运，KN Rao 变体，")
+        lines.append("> 已用 JHora 双盘金标准 24/24 对照验证）。用途：时间窗口的双系统交叉验证——")
+        lines.append("> 两系统同指一个主题时段 = 信号硬度升级；仅单系统 = 措辞降一档。")
+        lines.append("")
+        lines.append("| 大运座 | 起始 | 结束 | 年数 |")
+        lines.append("|--------|------|------|------|")
+        import datetime as _dt
+        _today_jd = _swe.julday(_dt.date.today().year, _dt.date.today().month, _dt.date.today().day, 12.0)
+        for md in cd['mahadashas']:
+            y1, m1, d1, _ = _swe.revjul(md['start_jd'])
+            y2, m2, d2, _ = _swe.revjul(md['end_jd'])
+            marker = ' ← 当前' if md['start_jd'] <= _today_jd < md['end_jd'] else ''
+            lines.append(f"| {md['sign']} | {y1:04d}-{m1:02d}-{d1:02d} | {y2:04d}-{m2:02d}-{d2:02d} | {md['years']} |{marker}")
+        lines.append("")
+
     # Antardasha — 输出全部大运的小运表（验前事需要扫描过去的时间窗口）
     for d in chart['dashas']:
         if 'antardashas' in d:
@@ -254,16 +280,32 @@ def format_structured_data(chart, transit_data, meta, user_info):
     
     # D9
     lines.append("### D9 Navamsha")
-    lines.append("| 行星 | D9星座 | D9宫位 | Vargottama |")
-    lines.append("|------|--------|--------|-----------|")
+    lines.append("| 行星 | D9星座 | D9宫位 | Vargottama | D9尊贵 | D9房东 |")
+    lines.append("|------|--------|--------|-----------|--------|--------|")
     d9l = chart['d9']['Lagna']
-    lines.append(f"| Lagna | {d9l[0]} | 1 | — |")
+    lines.append(f"| Lagna | {d9l[0]} | 1 | — | — | — |")
+    D9_DIG_LABEL = {'exalted':'旺','own':'自庙','debilitated':'陷',
+                    'friend':'友','enemy':'敌','neutral':'中性'}
+    d9dig = chart.get('d9_dignity', {})
     for name in ['Sun','Moon','Mars','Mercury','Jupiter','Venus','Saturn','Rahu','Ketu']:
         sign, sidx = chart['d9'][name]
         d9_house = ((sidx - chart['d9']['Lagna'][1]) % 12) + 1
         varg = '是' if chart['vargottama'].get(name, False) else '否'
-        lines.append(f"| {name} | {sign} | {d9_house} | {varg} |")
+        dd = d9dig.get(name, {})
+        dlab = D9_DIG_LABEL.get(dd.get('dignity'), '—')
+        disp = dd.get('dispositor', '—')
+        lines.append(f"| {name} | {sign} | {d9_house} | {varg} | {dlab} | {disp} |")
+    lines.append("> D9尊贵/房东为 calculator 查表确定值，读盘直接引用，禁止自行判读入旺/落陷。")
     lines.append("")
+
+    # Pushkara（落陷补丁维度：落入者受滋养保护，受损行星有恢复缓冲）
+    pk = chart.get('pushkara')
+    if pk and 'error' not in pk:
+        nav = '、'.join(pk.get('pushkara_navamsa', [])) or '无'
+        bhaga = '、'.join(pk.get('pushkara_bhaga', [])) or '无'
+        lines.append(f"Pushkara Navamsa（滋养保护区）: {nav}")
+        lines.append(f"Pushkara Bhaga（精确滋养度）: {bhaga}")
+        lines.append("")
     
     # D10
     lines.append("### D10 Dasamsha")
@@ -300,7 +342,26 @@ def format_structured_data(chart, transit_data, meta, user_info):
         d5_house = ((sidx - chart['d5']['Lagna'][1]) % 12) + 1
         lines.append(f"| {name} | {sign} | {d5_house} |")
     lines.append("")
-    
+
+    # 分盘内部宫主表 + 尊贵度（线A 数据：分盘自身 Lagna 起宫的宫主 + 各星分盘尊贵，禁 AI 自推）
+    vi = chart.get('varga_internal', {})
+    if vi:
+        lines.append("### 分盘内部宫主表 + 尊贵度（线A · calc 查表，禁自推）")
+        lines.append("> 线A=用分盘自身 Lagna 推出的分盘宫主(D*-L*)，读此段；线B=本命宫主职落分盘(见上各分盘落宫表)。两线禁混用，断语须标是哪个盘。")
+        DIG = {'exalted':'旺','own':'自庙','debilitated':'陷','friend':'友','enemy':'敌','neutral':'中'}
+        GRAHA = ['Sun','Moon','Mars','Mercury','Jupiter','Venus','Saturn']
+        for dv in ['D9','D10','D4','D5']:
+            v = vi.get(dv)
+            if not v:
+                continue
+            hl = v['house_lords']; dg = v['dignity']
+            lords_str = " ".join(f"{dv}-L{h}={hl[h]['lord']}@H{hl[h]['lord_house']}" for h in range(1, 13))
+            dig_str = " ".join(f"{n}={DIG.get(dg[n]['dignity'],'?')}/座主{dg[n]['dispositor']}" for n in GRAHA if n in dg)
+            lines.append(f"**{dv}** Lagna={v['lagna_sign']}（{dv}-Lagna主={v['lagna_lord']}）")
+            lines.append(f"  宫主(线A): {lords_str}")
+            lines.append(f"  分盘尊贵: {dig_str}")
+        lines.append("")
+
     # === 校验 ===
     lines.append("## 校验结果\n")
     sav_total = sum(chart['sav'].get(s,0) for s in SIGNS)
@@ -339,7 +400,7 @@ def format_structured_data(chart, transit_data, meta, user_info):
     lines.append(f" 5. Ra-Ke差180°      {ra_ke_ok}")
     lines.append(f" 6. 逆行标记完整      ✅")
     lines.append(f" 6b. 燃烧检测        ✅ [{comb_str}]")
-    lines.append(f" 7. Ayanamsa一致     ✅ Lahiri")
+    lines.append(f" 7. Ayanamsa一致     ✅ True Chitra")
     lines.append(f" 7c. 盈月/亏月       {phase_str}")
     lines.append(f" 8. Nakshatra↔度数   ✅")
     lines.append(f" 9. Chara Karaka排序 ✅")
@@ -377,5 +438,17 @@ def format_structured_data(chart, transit_data, meta, user_info):
         lines.append(f"Jupiter过运相位覆盖宫位: {transit_data['jupiter_covers']}")
         lines.append(f"双过运激活宫位: {transit_data['double_transit']}")
         lines.append("```")
-    
+
+        if transit_data.get('future_ingress'):
+            lines.append("")
+            lines.append("### 未来过运换座时间表（真实天文计算，未来5年）")
+            lines.append("> ⚠️ 报告/QA 中所有未来过运窗口必须引用本表日期，禁止凭记忆推算换座时间。")
+            lines.append("> 逆行回跨如实列出（同一边界可能 进→退→再进）。")
+            lines.append("")
+            lines.append("| 日期 | 行星 | 换座 |")
+            lines.append("|------|------|------|")
+            for ev in transit_data['future_ingress']:
+                lines.append(f"| {ev['date']} | {ev['planet']} | {ev['from_sign']} → {ev['to_sign']} |")
+            lines.append("")
+
     return '\n'.join(lines)

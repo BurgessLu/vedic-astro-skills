@@ -7,11 +7,23 @@ v0.5: 移除所有 dashaflow fallback（错误结果比无结果更糟），fail
 v0.4: Dasha 接入 PyJHora（≤2天）
 v0.3: SAV/Shadbala fallback 显式 WARNING
 """
-import swisseph as swe
+import os, sys
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")  # 受限环境(如Claude Code)免疫OpenBLAS线程探测
+
+try:
+    import swisseph as swe
+except ImportError as e:                             # 用错python时给可执行纠正,不再含糊报错
+    sys.stderr.write(
+        "\n❌ swisseph 不可用—极可能用了系统 Python。\n"
+        "  系统 Python 装的是空壳(只有 dist-info、无 .pyd),必须改用 skill 自带 venv:\n"
+        "  Windows : vedic-calculator\\venv\\Scripts\\python.exe <脚本>\n"
+        "  Linux/Mac: vedic-calculator/venv/bin/python <脚本>\n"
+        f"  原始错误: {e}\n"
+    )
+    raise
 from datetime import datetime, timedelta
 import pytz
 import json
-import sys
 
 # dashaflow — 仅用于 dignity/jaimini（这些无 PyJHora bug，不需要修正）
 from dashaflow.dignity import get_dignity, get_compound_relationship, check_combustion, get_digbala
@@ -51,12 +63,19 @@ try:
         calculate_bhava_bala as _bhava_bala_pyjhora,
         calculate_special_lagnas as _special_lagnas_pyjhora,
         calculate_vargeeya_bala as _vargeeya_bala_pyjhora,
+        calculate_pushkara as _pushkara_pyjhora,
     )
 except ImportError as e:
     _bhava_bala_pyjhora = None
     _special_lagnas_pyjhora = None
     _vargeeya_bala_pyjhora = None
+    _pushkara_pyjhora = None
     _load_errors.append(f'extras_pyjhora: {e}')
+try:
+    from chara_dasha import calc_chara_dasha as _chara_dasha
+except ImportError as e:
+    _chara_dasha = None
+    _load_errors.append(f'chara_dasha: {e}')
 
 # Fail-fast: 核心模块必须全部加载
 _REQUIRED = {'SAV': _av_pyjhora, 'Shadbala': _shadbala_pyjhora, 'Dasha': _dasha_pyjhora}
@@ -69,7 +88,7 @@ if _missing:
     raise ImportError(f"vedic-calculator 核心模块缺失: {', '.join(_missing)}. 请运行 setup_env.py")
 
 # === 配置 ===
-swe.set_sid_mode(swe.SIDM_LAHIRI)
+swe.set_sid_mode(swe.SIDM_TRUE_CITRA)
 
 SIGNS = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo',
          'Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
@@ -110,9 +129,23 @@ HOUSE_DOMAINS = {
 
 # === 核心计算函数 ===
 
+def _localize_strict(tz, dt):
+    """DST-safe localize：出生时间落在夏令时切换时段时不静默猜（错1小时=上升/Dasha全错），明确报错。"""
+    try:
+        return tz.localize(dt, is_dst=None)
+    except pytz.exceptions.AmbiguousTimeError:
+        raise ValueError(
+            f"出生时间 {dt} 落在夏令时结束的重复时段（当地钟表回拨，该时刻出现过两次）。"
+            "请确认出生记录用的是夏令时还是标准时间的钟表时间，无法确认时建议用 rectifier 校准。")
+    except pytz.exceptions.NonExistentTimeError:
+        raise ValueError(
+            f"出生时间 {dt} 落在夏令时开始的跳过时段（当地钟表拨快，该时刻不存在）。"
+            "出生记录可能用的是标准时间——请核实后换算，或用 rectifier 校准。")
+
+
 def to_jd(year, month, day, hour, minute, tz_str):
     tz = pytz.timezone(tz_str)
-    local_dt = tz.localize(datetime(year, month, day, hour, minute))
+    local_dt = _localize_strict(tz, datetime(year, month, day, hour, minute))
     utc_dt = local_dt.astimezone(pytz.utc)
     ut_hour = utc_dt.hour + utc_dt.minute/60.0 + utc_dt.second/3600.0
     return swe.julday(utc_dt.year, utc_dt.month, utc_dt.day, ut_hour)
@@ -381,7 +414,7 @@ def calc_transits(lagna_sign_idx, moon_sign_idx):
     """
     now = datetime.now()
     jd_now = swe.julday(now.year, now.month, now.day, now.hour + now.minute/60)
-    swe.set_sid_mode(swe.SIDM_LAHIRI)
+    swe.set_sid_mode(swe.SIDM_TRUE_CITRA)
     flags = swe.FLG_SIDEREAL | swe.FLG_SPEED
     
     transits = {}
@@ -482,7 +515,7 @@ def calculate_full_chart(year, month, day, hour, minute, lat, lon, tz_str="Asia/
     
     # 4. SAV/BAV (PyJHora — no fallback)
     tz = pytz.timezone(tz_str)
-    _tz_dt = tz.localize(datetime(year, month, day, hour, minute))
+    _tz_dt = _localize_strict(tz, datetime(year, month, day, hour, minute))
     _tz_offset = _tz_dt.utcoffset().total_seconds() / 3600.0
     ashtak = _av_pyjhora(year, month, day, hour, minute, lat, lon, _tz_offset)
     
@@ -593,7 +626,63 @@ def calculate_full_chart(year, month, day, hour, minute, lat, lon, tz_str="Asia/
                 compound = COMPOUND_TABLE.get((natural, temporal), 'neutral')
         
         dignity_data[name] = {'basic': compound, 'compound': compound}
-    
+
+    # 6b. D9 自然尊贵度 (PQ-01: 纯查表补算，禁模型通识判读 D9 入旺/落陷/座主链)
+    #     只用自然尊贵 (旺exalted/庙own/陷debilitated/友friend/敌enemy/中性neutral)
+    #     不含临时/合成关系——D9 尊贵直接查表，答案确定。
+    d9_dignity = {}
+    for name in ['Sun','Moon','Mars','Mercury','Jupiter','Venus','Saturn']:
+        d9_entry = d9.get(name)
+        if not d9_entry:
+            continue
+        d9_sign, d9_sign_idx = d9_entry[0], d9_entry[1]
+        dispositor = SIGN_LORDS[d9_sign_idx]  # D9 房东星
+        if EXALTATION.get(name) == d9_sign:
+            d9_dig = 'exalted'
+        elif DEBILITATION.get(name) == d9_sign:
+            d9_dig = 'debilitated'
+        elif d9_sign in OWN_SIGNS.get(name, []):
+            d9_dig = 'own'
+        else:
+            d9_dig = get_natural_rel(name, dispositor)  # friend/enemy/neutral
+        d9_dignity[name] = {'sign': d9_sign, 'dignity': d9_dig, 'dispositor': dispositor}
+
+    # 6c. 分盘内部宫主表 + 分盘尊贵度（D9/D10/D4/D5——线A"分盘内部宫主"数据化，禁 AI 自推）
+    #     house_lords：以【分盘自身 Lagna】起宫，H1~H12 各座主 + 该座主在本分盘落宫。
+    #     dignity：每星在本分盘座的自然尊贵（同 D9 查表）。消灭"D10-L10 是谁"自推出错的土壤。
+    varga_internal = {}
+    for dv in ['D9', 'D10', 'D4', 'D5']:
+        ch = divisional_charts.get(dv) if divisional_charts else None
+        if not ch or 'error' in ch or 'Lagna' not in ch:
+            continue
+        v_lag = ch['Lagna']['sign_idx']
+        v_lords = {}
+        for house in range(1, 13):
+            s_idx = (v_lag + house - 1) % 12
+            lord = SIGN_LORDS[s_idx]
+            le = ch.get(lord)
+            lord_house = ((le['sign_idx'] - v_lag) % 12) + 1 if le else None
+            v_lords[house] = {'sign': SIGNS[s_idx], 'lord': lord, 'lord_house': lord_house}
+        v_dig = {}
+        for name in ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn']:
+            e = ch.get(name)
+            if not e:
+                continue
+            s, sidx = e['sign'], e['sign_idx']
+            disp = SIGN_LORDS[sidx]
+            if EXALTATION.get(name) == s:
+                dg = 'exalted'
+            elif DEBILITATION.get(name) == s:
+                dg = 'debilitated'
+            elif s in OWN_SIGNS.get(name, []):
+                dg = 'own'
+            else:
+                dg = get_natural_rel(name, disp)
+            v_dig[name] = {'sign': s, 'house': ((sidx - v_lag) % 12) + 1,
+                           'dignity': dg, 'dispositor': disp}
+        varga_internal[dv] = {'lagna_sign': SIGNS[v_lag], 'lagna_lord': SIGN_LORDS[v_lag],
+                              'house_lords': v_lords, 'dignity': v_dig}
+
     # 7. Combustion check
     sun_lon = planets['Sun']['longitude']
     combustion = {}
@@ -647,10 +736,11 @@ def calculate_full_chart(year, month, day, hour, minute, lat, lon, tz_str="Asia/
     bhava_bala = None
     special_lagnas = None
     vargeeya_bala = None
+    pushkara = None
     if any([_bhava_bala_pyjhora, _special_lagnas_pyjhora, _vargeeya_bala_pyjhora]):
         try:
             tz = pytz.timezone(tz_str)
-            _tz_dt = tz.localize(datetime(year, month, day, hour, minute))
+            _tz_dt = _localize_strict(tz, datetime(year, month, day, hour, minute))
             _tz_offset = _tz_dt.utcoffset().total_seconds() / 3600.0
             if _bhava_bala_pyjhora:
                 bhava_bala = _bhava_bala_pyjhora(year, month, day, hour, minute, lat, lon, _tz_offset)
@@ -658,9 +748,29 @@ def calculate_full_chart(year, month, day, hour, minute, lat, lon, tz_str="Asia/
                 special_lagnas = _special_lagnas_pyjhora(year, month, day, hour, minute, lat, lon, _tz_offset)
             if _vargeeya_bala_pyjhora:
                 vargeeya_bala = _vargeeya_bala_pyjhora(year, month, day, hour, minute, lat, lon, _tz_offset)
+            if _pushkara_pyjhora:
+                pushkara = _pushkara_pyjhora(year, month, day, hour, minute, lat, lon, _tz_offset)
         except Exception:
             pass
     
+    # DST 透明标注：出生时刻是否处于当地夏令时（pytz 默认把报时当墙上钟时间处理）
+    try:
+        _tzd = pytz.timezone(tz_str)
+        _dtd = _localize_strict(_tzd, datetime(year, month, day, hour, minute))
+        dst_info = {'is_dst': bool(_dtd.dst()), 'utc_offset': str(_dtd.utcoffset())}
+    except Exception:
+        dst_info = None
+
+    # Chara Dasha (K.N. Rao) — engine 真值输入（JHora 双盘金标准 24/24 验证）
+    chara_dasha = None
+    if _chara_dasha:
+        try:
+            _sign_idx = {s: i for i, s in enumerate(SIGNS)}
+            _psigns = {p: _sign_idx[planets[p]['sign']] for p in planets}
+            chara_dasha = _chara_dasha(_sign_idx[lagna['sign']], _psigns, jd)
+        except Exception:
+            pass
+
     return {
         'ayanamsa': ayanamsa,
         'lagna': lagna,
@@ -672,6 +782,8 @@ def calculate_full_chart(year, month, day, hour, minute, lat, lon, tz_str="Asia/
         'divisional_charts': divisional_charts,
         'vargottama': vargottama,
         'dignity': dignity_data,
+        'd9_dignity': d9_dignity,
+        'varga_internal': varga_internal,
         'combustion': combustion,
         'karakas': karakas,
         'aspects': aspects,
@@ -685,6 +797,9 @@ def calculate_full_chart(year, month, day, hour, minute, lat, lon, tz_str="Asia/
         'bhava_bala': bhava_bala,
         'special_lagnas': special_lagnas,
         'vargeeya_bala': vargeeya_bala,
+        'pushkara': pushkara,
+        'chara_dasha': chara_dasha,
+        'dst_info': dst_info,
     }
 
 
@@ -695,7 +810,7 @@ if __name__ == '__main__':
     # Gandhi: 1869-10-02, 07:12, Porbandar
     chart = calculate_full_chart(1869, 10, 2, 7, 12, 21.6417, 69.6293, "Asia/Kolkata")
     
-    print(f"Ayanamsa (Lahiri): {chart['ayanamsa']:.4f}°")
+    print(f"Ayanamsa (True Chitra): {chart['ayanamsa']:.4f}°")
     print(f"Lagna: {chart['lagna']['sign']} {chart['lagna']['deg_str']}")
     
     print(f"\n--- Planets ---")

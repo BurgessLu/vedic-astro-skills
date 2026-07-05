@@ -1,21 +1,21 @@
 <p align="center">
-  <h1 align="center">🔱 Vedic Astro Skills v6.1</h1>
+  <h1 align="center">🔱 Vedic Astro Skills v7.0</h1>
   <p align="center">
     <strong>AI驱动的吠陀占星分析系统 | AI-Powered Vedic Astrology Analysis System</strong>
   </p>
   <p align="center">
-    <img src="https://img.shields.io/badge/version-v6.1-blue" alt="Version">
+    <img src="https://img.shields.io/badge/version-v7.0-blue" alt="Version">
     <img src="https://img.shields.io/badge/python-3.8~3.13-green" alt="Python">
-    <img src="https://img.shields.io/badge/license-MIT-orange" alt="License">
-    <img src="https://img.shields.io/badge/skills-6-purple" alt="Skills">
+    <img src="https://img.shields.io/badge/license-AGPL--3.0-orange" alt="License">
+    <img src="https://img.shields.io/badge/skills-7-purple" alt="Skills">
   </p>
 </p>
 
 ---
 
-> **六个专精 Skill 协同工作，从原生排盘到完整人生审计。**
+> **七个专精 Skill 协同工作，从原生排盘到完整人生审计，再到双人合盘。**
 >
-> Six specialized skills working together — from native chart calculation to complete life audit.
+> Seven specialized skills working together — from native chart calculation to complete life audit and two-person synastry.
 
 **兼容 Antigravity、Claude Code 和 Codex。** Compatible with Antigravity, Claude Code, and Codex.
 
@@ -24,7 +24,7 @@
 ## 📖 目录 / Table of Contents
 
 - [安装 / Installation](#-安装--installation)
-- [六Skill架构 / Architecture](#-六skill架构--architecture)
+- [七Skill架构 / Architecture](#-七skill架构--architecture)
 - [快速开始 / Quick Start](#-快速开始--quick-start)
 - [各Skill说明 / Skill Details](#-各skill说明--skill-details)
 - [项目结构 / Project Structure](#-项目结构--project-structure)
@@ -42,8 +42,8 @@
 <summary><b>Codex</b></summary>
 
 ```bash
-# 从 GitHub 安装全部 6 个 skill（缺一不可）
-# Install all 6 skills from GitHub (all required)
+# 从 GitHub 安装全部 7 个 skill（缺一不可）
+# Install all 7 skills from GitHub (all required)
 
 git clone https://github.com/CNWU16/vedic-astro-skills.git
 cp -r vedic-astro-skills/codex/skills/vedic-* ~/.codex/skills/
@@ -64,9 +64,9 @@ cp -r vedic-astro-skills/claude-code/skills/vedic-* ~/.claude/skills/
 <details>
 <summary><b>Antigravity</b></summary>
 
-将 `antigravity/skills/` 下的 6 个文件夹复制到你的 Antigravity skills 目录：
+将 `antigravity/skills/` 下的 7 个文件夹复制到你的 Antigravity skills 目录：
 
-Copy all 6 folders from `antigravity/skills/` to your Antigravity skills directory:
+Copy all 7 folders from `antigravity/skills/` to your Antigravity skills directory:
 
 ```
 vedic-reader/
@@ -75,13 +75,14 @@ vedic-core/
 vedic-career/
 vedic-love/
 vedic-rectifier/
+vedic-synastry/      ← 合盘（需两份盘）/ Synastry (needs two charts)
 ```
 
 </details>
 
-> ⚠️ **必须安装全部 6 个 skill。** vedic-calculator 是计算基座，其他 5 个 skill 都依赖它。漏装 calculator 会导致数据精度严重下降。
+> ⚠️ **建议一次装全 7 个 skill。** vedic-calculator 是计算基座，其余分析 skill 都依赖它生成的 `structured_data.md`。其中 **vedic-synastry（合盘）是双人分析 skill**——它比较两个人的盘，用法与单人 skill 不同（需双方各一份盘）。
 >
-> **All 6 skills must be installed.** vedic-calculator is the computational foundation. Missing it will severely degrade data accuracy.
+> **Install all 7 skills.** vedic-calculator is the computational foundation that the other analysis skills depend on. Among them, **vedic-synastry (synastry) is a two-person skill** — it compares two charts and works differently from single-person skills (needs one chart per person).
 
 ### Step 2: 安装 Python 依赖 / Install Python dependencies
 
@@ -102,10 +103,12 @@ python vedic-calculator/scripts/setup_env.py
 > 💡 AI 首次运行时会自动检测环境并运行 `setup_env.py`。但 **请确保系统已安装 Python 3.8~3.13**。
 >
 > The AI agent will auto-detect and run `setup_env.py` on first use. But **make sure Python 3.8~3.13 is installed on your system**.
+>
+> 注：vedic-synastry 的脚本是纯标准库，不需要额外依赖。/ Note: vedic-synastry scripts use only the Python standard library.
 
 ---
 
-## 🏛️ 六Skill架构 / Architecture
+## 🏛️ 七Skill架构 / Architecture
 
 ```
 用户星盘 (PDF/截图/文本)          用户出生信息 (日期+时间+地点)
@@ -128,13 +131,16 @@ Chart file (PDF/image/text)      Birth info (date+time+place)
              │ 十大板块总结   │      └────────────────┘
              └──────┬──────┘
                     │
-          ┌─────────┴──────────┐
-          ▼                    ▼
-   ┌──────────────┐    ┌───────────┐
-   │ vedic-career  │    │ vedic-love │
-   │ 职业蓝图 4Phase│    │ 恋爱时机 3Step│
-   │ Career blueprint│  │ Love timing │
-   └──────────────┘    └───────────┘
+          ┌─────────┼──────────┐
+          ▼         ▼          ▼
+   ┌──────────┐ ┌────────┐ ┌──────────────────┐
+   │vedic-career│ │vedic-love│ │ vedic-synastry   │
+   │职业蓝图    │ │恋爱时机  │ │ 合盘（需两份盘）  │
+   │Career      │ │Love      │ │ Synastry (2 charts)│
+   └──────────┘ └────────┘ └──────────────────┘
+                              ▲
+              另一个人的 structured_data.md
+              second person's chart
 ```
 
 | Skill | 功能 Function | 触发词 Trigger |
@@ -145,6 +151,7 @@ Chart file (PDF/image/text)      Birth info (date+time+place)
 | 💼 **career** | 4Phase职业蓝图 / Career blueprint | "分析事业" "职业分析" |
 | 💘 **love** | 3Step恋爱时机分析 / Love timing analysis | "分析感情" "恋爱运势" "桃花时机" |
 | 📐 **rectifier** | 5事件逆推出生时间 ±5min / Birth time rectification | "校准时间" "时间矫正" |
+| 💞 **synastry** | 双人合盘：跨盘叠盘 + 六维矩阵关系分析 / Two-person synastry | "合盘" "两个人合不合" "婚配" "合作搭档" |
 
 ---
 
@@ -176,6 +183,7 @@ Chart file (PDF/image/text)      Birth info (date+time+place)
 用户: 开始分析      → vedic-core 完整审计
 用户: 分析事业      → vedic-career 职业蓝图
 用户: 分析感情      → vedic-love 恋爱时机
+用户: 合盘 / 我和XX合不合 → vedic-synastry 双人合盘（再提供对方出生信息即可）
 ```
 
 ### reader 内部路由 / Internal Routing
@@ -282,6 +290,14 @@ Planet-by-planet audit → D9 cross-validation → House diagnosis → Ten life 
 
 ---
 
+### 💞 vedic-synastry — 合盘 / Synastry
+
+比较两个人的星盘：先中性平扫关系性质，再按 情感/合作/友谊/家人 四框架做五层分析（双盘资格 → 月宿 → 方向叠盘 → 时机 → 六维矩阵）。不给"匹配度%"总分，吸引与承载分开看；纯吠陀判据，需双方各一份盘。
+
+Compares two charts: a neutral scan first, then a five-layer analysis under one of four frames (romantic/business/friendship/family) — dual-chart capacity → koota → directional overlay → timing → six-dimension matrix. No "match %" score; pure Vedic, needs one chart per person.
+
+---
+
 ### 📐 vedic-rectifier — 时间校准 / Time Rectification
 
 5个人生重大事件逆推出生时间，精度 ±5分钟。不强制改时间——用户确认后才更新。
@@ -324,6 +340,13 @@ vedic-astro-skills/
 │   │   └── SKILL.md                 # 职业分析
 │   ├── vedic-love/
 │   │   └── SKILL.md                 # 恋爱分析
+│   ├── vedic-synastry/              # 合盘
+│   │   ├── SKILL.md                 # 合盘引擎指令（五层 + QA）
+│   │   ├── USAGE.md                 # 使用指南
+│   │   ├── resources/               # 跨盘相位/月宿/性质盲扫/六维矩阵规则
+│   │   └── scripts/
+│   │       ├── build_synastry_data.py    # 跨盘计算引擎（纯标准库）
+│   │       └── validate_synastry_data.py # 双盘自检
 │   └── vedic-rectifier/
 │       ├── SKILL.md                 # 时间校准
 │       ├── requirements.txt
@@ -345,6 +368,7 @@ vedic-astro-skills/
 | **天文核心 Ephemeris** | Swiss Ephemeris via pysweph |
 | **精确算法 Algorithms** | PyJHora 4.8.6 (SAV/Dasha/分盘) + 9项Shadbala修正 |
 | **分盘 Divisions** | 15 张分盘 D1~D60 (PyJHora) |
+| **合盘 Synastry** | 跨盘叠盘 + Ashtakoota 八项 + 六维矩阵（纯吠陀判据，不混西方占星）|
 | **容错策略 Error Handling** | Fail-fast（不给错误结果）+ `setup_env.py` 自动修复 |
 | **校验 Validation** | 16条数学校验（SAV=337、BAV行和常量、Ra-Ke对冲等）|
 | **反偏见 Anti-bias** | 正反双审 — 禁止只挑用户想听的数据 |
@@ -357,7 +381,8 @@ vedic-astro-skills/
 
 | 版本 | 日期 | 亮点 |
 |:---|:---|:---|
-| **v6.1** | 2026-06-08 | 🎯 **PyJHora 精确引擎** — Dasha ≤2天 + Shadbala 9项fix + fail-fast + 无fallback |
+| **v7.0** | 2026-06-18 | 💞 **vedic-synastry 合盘上线** — 两段式入口（中性平扫 → 关系框架）+ 跨盘叠盘 + 六维矩阵（不给匹配度总分）|
+| v6.1 | 2026-06-08 | 🎯 **PyJHora 精确引擎** — Dasha ≤2天 + Shadbala 9项fix + fail-fast + 无fallback |
 | v6.0 | 2026-06-07 | 🧮 vedic-calculator 上线 — 原生排盘引擎 + 移植性改造 + 全系统接入 |
 | v5.0 | 2026-05-22 | 三阶段执行引擎 + 动态报告打包 |
 | v4.0 | 2026-05-10 | 双通道OCR + 时间精度联动 + Rectifier |
@@ -387,4 +412,11 @@ If this project helps you, consider buying me a coffee:
 
 ## License
 
-MIT
+**代码**: [AGPL-3.0](LICENSE) — 你可以自由使用、修改、学习。如果你基于本项目提供网络服务（SaaS），需要开源你的完整服务端代码。
+
+**指令文件** (SKILL.md / prompt 模板 / resources): 附加商用限制 — 个人使用无限制；未经授权不得用于商业服务。详见 [COMMERCIAL_NOTICE](COMMERCIAL_NOTICE)。
+
+简单说：**个人用随便用，拿去卖钱的请先联系我。**
+
+Code: AGPL-3.0 — free to use, modify, study. Network services must open-source their full server code.
+Prompt files: additional commercial restriction — personal use unlimited; commercial use requires written permission. See [COMMERCIAL_NOTICE](COMMERCIAL_NOTICE).
