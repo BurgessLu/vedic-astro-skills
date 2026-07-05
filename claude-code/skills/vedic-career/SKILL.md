@@ -201,6 +201,7 @@ Phase 4 Part 3   → 写入 career_phase4c.md
    - 富格(Dhana Yoga): 参考2/11宫主互动
    - Vipreet Raja Yoga: 6/8/12宫主互飞
    - Gaja Kesari/Adhi Yoga: 判定条件见 vedic-core/resources/yogas.md，禁止按"Moon旁有吉星"即兴判成立
+   - （以上为事业/财富重点项，非封闭集：yogas.md「主要格局扫描清单」中其余接通 10宫/2宫/11宫/AmK 的格局一并扫描）
 
 2. **强点锁定:**
    - AmK(事业指标星) → 从structured_data Chara Karakas读取
